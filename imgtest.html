@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            
+            
+            #content {
+                height: 400px;
+                width: 400px;
+                border: 1px solid gray;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            
+            #imgcontainer {
+                position: absolute;
+                width: inherit;
+                height: inherit;
+            }
+
+
+            #container {
+                position: absolute;
+                width: inherit;
+                height: inherit;
+                border: 1px solid gray;
+                margin-left: auto;
+                margin-right: auto;
+                
+                display:flex;
+                flex-direction:column;
+                align-items:flex-start;
+            }
+
+            #bgimage {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            #cellImg {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            #uploadPics {
+            
+                width: 400px;
+                border: 1px solid gray;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            div.row{
+                display: flex;
+                flex-direction:row;
+                align-items:flex-start;
+                width: 100%;
+                flex:auto;
+            }
+            div.cell{
+                background-color: #fffffff2;
+                height: 100%;
+                flex: auto;
+            }
+
+
+        </style>
+    </head>
+    <body>
+        <div id="bg" style="height: 600px; border:1px solid goldenrod">
+            <div id="content">
+                <div id="imgcontainer">
+                    <img id="bgimage">
+                </div>
+                <div id="container">
+                </div>
+            </div>
+            <div id="uploadPics">
+                <input type="file" id="bginput">
+                <input type="file" id="fginput">
+            </div>
+        </div>
+    </body>
+
+    <script>
+        var context;
+        var pxlMatrix;
+        var rowNum;
+        var colNum;
+        const pxlPerBlock = 2**2;
+        var fgImgs = [];
+        function initial(){
+            
+            let bgImg = document.getElementById("bginput");
+            let fgImgs = document.getElementById("fginput");
+            bgImg.addEventListener(
+                "change", 
+                (event) => {
+                    imgFile = event.target.files[0];
+                    var imgUrl =  window.URL.createObjectURL(imgFile);
+                    
+                    let img = document.getElementById("bgimage");
+                    img.src = imgUrl;
+                    img.onload=(event) => {
+                        const canvas = document.createElement('canvas');
+                        context = canvas.getContext('2d');
+                        const width = event.target.width;
+                        const height = event.target.height;
+
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        context.drawImage(img, 0, 0, width, height);
+                        initGrid(height, width, context);
+                        
+                    }
+                },
+                false
+            );
+
+            fgImgs.addEventListener(
+                "change", 
+                (event) => {
+                    fgFiles = event.target.files;
+
+                    // fgFiles.forEach(element => {
+                        fgImgs[0] = window.URL.createObjectURL(fgFiles[0]);
+                    // });
+
+                    setInterval(updateBgImg(rowNum, colNum), 1000);
+                },
+                false
+            );
+
+            
+        }
+
+        function updateBgImg(r, c){
+            var currRow = 0;
+            var currCol = 0;
+            return function(){
+                let cellImgEle = document.getElementById(currRow + "-" + currCol);
+                cellImgEle.src = fgImgs[1];
+                if(currCol < c - 1){
+                    currCol += 1;
+                }else if(currCol == c - 1 && currRow < r - 1){
+                    currCol = 0;
+                    currRow += 1;
+                }
+            }
+        }
+
+        function initGrid(h, w, ctx){
+            let targetDiv = document.getElementById("container");
+            let data = ctx.getImageData(0, 0, w, h);
+            rowNum = h / pxlPerBlock;
+            colNum = w / pxlPerBlock;
+            let pxlRow = new Array(rowNum)
+            for(let r = 0; r < rowNum; r++){
+                let divRow = document.createElement("div");
+                divRow.className = "row";
+                pxlRow[r] = new Array(colNum)
+                for(let c = 0; c < colNum; c++){
+                    let cell = document.createElement("div");
+                    cell.className = "cell";
+                    
+                    let cellImg = document.createElement("img");
+                    cellImg.className = "cellImg";
+                    cellImg.setAttribute("id", r + "-" + c);
+                    cell.appendChild(cellImg);
+                    
+                    divRow.appendChild(cell);
+                    pxlRow[r][c] = getRGB(r, c, ctx);
+                    cell.style.backgroundColor = pxlRow[r][c].toRGBString();
+                }
+                targetDiv.appendChild(divRow);
+            }
+            pxlMatrix = pxlRow;
+        }
+
+        function getRGB(r, c, ctx){
+            let data;
+            let rgb={
+                r:0, 
+                g:0, 
+                b:0, 
+                alph:0,
+                toRGBString: function(){
+                    return "rgba(" + this.r + ", " + this.g + ", " + this.b  + ")"
+                }
+            }
+            if((c + 1) * pxlPerBlock >= ctx.width || (r + 1) * pxlPerBlock >= ctx.height){
+                data = context.getImageData(c * pxlPerBlock, r * pxlPerBlock, pxlPerBlock, pxlPerBlock);
+            }else{
+                data = context.getImageData(c * pxlPerBlock, r * pxlPerBlock, pxlPerBlock, pxlPerBlock);
+            }
+
+            let pxlCount = data.data.length
+            for(let i = 0; i < pxlCount;){
+                
+                rgb.r += data.data[i];
+                rgb.g += data.data[i+1];
+                rgb.b += data.data[i+2];
+                rgb.alph += data.data[i+3];
+                i += 4
+            }
+
+            // ~~ used to floor values
+            rgb.r = ~~(rgb.r/(pxlCount / 4));
+            rgb.g = ~~(rgb.g/(pxlCount / 4));
+            rgb.b = ~~(rgb.b/(pxlCount / 4));
+            rgb.alph = ~~(rgb.alph/(pxlCount / 4));
+            return rgb
+        }
+    
+        initial();
+        
+    </script>
+</html>
