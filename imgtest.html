@@ -5,8 +5,8 @@
             
             
             #content {
-                height: 400px;
-                width: 400px;
+                height: 1080px;
+                width: 1080px;
                 border: 1px solid gray;
                 margin-left: auto;
                 margin-right: auto;
@@ -38,15 +38,10 @@
                 object-fit: cover;
             }
 
-            #cellImg {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-            }
 
             #uploadPics {
             
-                width: 400px;
+                width: 1200px;
                 border: 1px solid gray;
                 margin-left: auto;
                 margin-right: auto;
@@ -57,19 +52,27 @@
                 flex-direction:row;
                 align-items:flex-start;
                 width: 100%;
-                flex:auto;
+                min-height:0;
+                flex:1 1 0;
             }
             div.cell{
                 background-color: #fffffff2;
                 height: 100%;
-                flex: auto;
+                flex: 1 1 0;
+                position: relative;
+            }
+
+            div.cover{
+                position: absolute;
+                top: 0px;
+                left: 0px;
             }
 
 
         </style>
     </head>
     <body>
-        <div id="bg" style="height: 600px; border:1px solid goldenrod">
+        <div id="bg" style="height: 1600px; border:1px solid goldenrod">
             <div id="content">
                 <div id="imgcontainer">
                     <img id="bgimage">
@@ -81,6 +84,9 @@
                 <input type="file" id="bginput">
                 <input type="file" id="fginput">
             </div>
+            <div class="selected" style="width: 200px; height: 200px; border: 1px solid red; margin-left:auto; margin-right: auto;">
+                <img id="selectedPic" style="width: 200px; height: 200px;">
+            </div>
         </div>
     </body>
 
@@ -89,8 +95,8 @@
         var pxlMatrix;
         var rowNum;
         var colNum;
-        const pxlPerBlock = 2**2;
-        var fgImgs = [];
+        const pxlPerBlock = 2**4;
+        var fgImgList = [];
         function initial(){
             
             let bgImg = document.getElementById("bginput");
@@ -98,7 +104,7 @@
             bgImg.addEventListener(
                 "change", 
                 (event) => {
-                    imgFile = event.target.files[0];
+                    var imgFile = event.target.files[0];
                     var imgUrl =  window.URL.createObjectURL(imgFile);
                     
                     let img = document.getElementById("bgimage");
@@ -123,13 +129,13 @@
             fgImgs.addEventListener(
                 "change", 
                 (event) => {
-                    fgFiles = event.target.files;
-
+                    let fgFiles = event.target.files;
+                    let fgUrl = window.URL.createObjectURL(fgFiles[0]);
                     // fgFiles.forEach(element => {
-                        fgImgs[0] = window.URL.createObjectURL(fgFiles[0]);
+                    fgImgList[0] = fgUrl;
                     // });
 
-                    setInterval(updateBgImg(rowNum, colNum), 1000);
+                    setInterval(updateBgImg(rowNum, colNum), 20);
                 },
                 false
             );
@@ -142,7 +148,13 @@
             var currCol = 0;
             return function(){
                 let cellImgEle = document.getElementById(currRow + "-" + currCol);
-                cellImgEle.src = fgImgs[1];
+                cellImgEle.src = fgImgList[0];
+                cellImgEle.onmouseover = mouseOver;
+
+                let cellCoverEle = cellImgEle.nextSibling;
+                cellCoverEle.onmouseover = mouseOver;
+                cellCoverEle.style.backgroundColor = pxlMatrix[currRow][currCol].toRGBString(true);
+
                 if(currCol < c - 1){
                     currCol += 1;
                 }else if(currCol == c - 1 && currRow < r - 1){
@@ -152,11 +164,18 @@
             }
         }
 
+        function mouseOver(event){
+            let selectedShow = document.getElementById("selectedPic");
+            let selectedEle = event.target.previousElementSibling;
+            selectedShow.src = selectedEle.src;
+            console.log(event.target);
+        }
+
         function initGrid(h, w, ctx){
             let targetDiv = document.getElementById("container");
             let data = ctx.getImageData(0, 0, w, h);
-            rowNum = h / pxlPerBlock;
-            colNum = w / pxlPerBlock;
+            rowNum = Math.floor(h / pxlPerBlock);
+            colNum = Math.floor(w / pxlPerBlock);
             let pxlRow = new Array(rowNum)
             for(let r = 0; r < rowNum; r++){
                 let divRow = document.createElement("div");
@@ -165,11 +184,20 @@
                 for(let c = 0; c < colNum; c++){
                     let cell = document.createElement("div");
                     cell.className = "cell";
-                    
+
+                    let cover = document.createElement("div");
+                    cover.className = "cover";
+                    cover.style.height = pxlPerBlock + "px";
+                    cover.style.width = pxlPerBlock + "px";
+                    cell.appendChild(cover);
+
                     let cellImg = document.createElement("img");
                     cellImg.className = "cellImg";
                     cellImg.setAttribute("id", r + "-" + c);
-                    cell.appendChild(cellImg);
+                    cellImg.style.height = pxlPerBlock + "px";
+                    cellImg.style.width = pxlPerBlock + "px";
+                    cellImg.style.verticalAlign = "top";
+                    cell.prepend(cellImg);
                     
                     divRow.appendChild(cell);
                     pxlRow[r][c] = getRGB(r, c, ctx);
@@ -187,8 +215,13 @@
                 g:0, 
                 b:0, 
                 alph:0,
-                toRGBString: function(){
-                    return "rgba(" + this.r + ", " + this.g + ", " + this.b  + ")"
+                toRGBString: function(transparancy){
+                    if (!transparancy){
+                        return "rgba(" + this.r + ", " + this.g + ", " + this.b  + ")"
+                    }else{
+                        return "rgba(" + this.r + ", " + this.g + ", " + this.b  + ", " + "0.8" + ")"
+                    }
+                    
                 }
             }
             if((c + 1) * pxlPerBlock >= ctx.width || (r + 1) * pxlPerBlock >= ctx.height){
